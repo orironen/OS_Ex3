@@ -1,9 +1,8 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -O2
 
-TARGET = convex_interactive
-SRC = convex_interactive.cpp
-
+TARGET = CH
+SRC = CH.cpp
 
 all: $(TARGET)
 
