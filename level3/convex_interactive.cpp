@@ -137,12 +137,12 @@ int main()
             break;
         }
         case CMD_CH:
-        {
-            std::vector<Point> hull = convexHull(points);
-            float area = calculateArea(hull);
-            std::cout << area << std::endl;
-            break;
-        }
+            {
+                std::vector<Point> hull = convexHull(points);
+                float area = calculateArea(hull);
+                std::cout << "Convex Hull Area: " << area << std::endl;
+                break;
+            }
         default:
             // Ignore unknown command
             break;

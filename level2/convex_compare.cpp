@@ -104,11 +104,13 @@ float calculateArea(const Container &hull)
 int main()
 {
     int numPoints;
+    std::cout << "Enter num of points:\n";
     std::cin >> numPoints;
     std::vector<Point> points(numPoints);
     for (int i = 0; i < numPoints; i++)
     {
         char comma;
+        std::cout << "Enter point " << i << "(comma-separated): ";
         std::cin >> points[i].x >> comma >> points[i].y;
     }
 

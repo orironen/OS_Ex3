@@ -71,15 +71,17 @@ float calculateArea(const std::vector<Point> &hull)
 int main()
 {
     int numPoints;
+    std::cout << "Enter num of points:\n";
     std::cin >> numPoints;
     std::vector<Point> points(numPoints);
     for (int i = 0; i < numPoints; i++)
     {
         char comma;
+        std::cout << "Enter point " << i << "(comma-separated): ";
         std::cin >> points[i].x >> comma >> points[i].y;
     }
     std::vector<Point> hull = convexHull(points);
     float area = calculateArea(hull);
-    std::cout << area << std::endl;
+    std::cout << "Convex Hull Area: " << area << std::endl;
     return 0;
 }
