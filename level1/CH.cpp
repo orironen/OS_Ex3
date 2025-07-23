@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdexcept>
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -79,6 +80,8 @@ int main()
         char comma;
         std::cout << "Enter point " << i << "(comma-separated): ";
         std::cin >> points[i].x >> comma >> points[i].y;
+        if (comma != ',') 
+            throw std::invalid_argument("Not comma-separated.");
     }
     std::vector<Point> hull = convexHull(points);
     float area = calculateArea(hull);

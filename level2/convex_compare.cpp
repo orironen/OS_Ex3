@@ -112,6 +112,8 @@ int main()
         char comma;
         std::cout << "Enter point " << i << "(comma-separated): ";
         std::cin >> points[i].x >> comma >> points[i].y;
+        if (comma != ',') 
+            throw std::invalid_argument("Not comma-separated.");
     }
 
     std::string mode;

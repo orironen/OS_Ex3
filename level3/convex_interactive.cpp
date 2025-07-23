@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdexcept>
 #include <vector>
 #include <algorithm>
 #include <string>
@@ -90,6 +91,7 @@ int main()
 {
     std::vector<Point> points;
     std::string line;
+    int n;
     while (std::getline(std::cin, line))
     {
         std::istringstream iss(line);
@@ -101,18 +103,8 @@ int main()
         {
         case CMD_NEWGRAPH:
         {
-            int n;
             iss >> n;
             points.clear();
-            for (int i = 0; i < n; ++i)
-            {
-                std::getline(std::cin, line);
-                float x, y;
-                char comma;
-                std::istringstream pointLine(line);
-                pointLine >> x >> comma >> y;
-                points.emplace_back(x, y);
-            }
             break;
         }
         case CMD_NEWPOINT:
@@ -120,6 +112,10 @@ int main()
             float x, y;
             char comma;
             iss >> x >> comma >> y;
+            if (comma != ',') 
+                throw std::invalid_argument("Not comma-separated.");
+            if (points.size() >= n)
+                throw std::out_of_range("Graph is full.");
             points.emplace_back(x, y);
             break;
         }
@@ -128,21 +124,24 @@ int main()
             float x, y;
             char comma;
             iss >> x >> comma >> y;
+            if (comma != ',') 
+                throw std::invalid_argument("Not comma-separated.");
             Point toRemove(x, y);
             auto it = std::find(points.begin(), points.end(), toRemove);
             if (it != points.end())
             {
                 points.erase(it);
             }
+            else throw std::invalid_argument("Point doesn't exist in graph.");
             break;
         }
         case CMD_CH:
-            {
-                std::vector<Point> hull = convexHull(points);
-                float area = calculateArea(hull);
-                std::cout << "Convex Hull Area: " << area << std::endl;
-                break;
-            }
+        {
+            std::vector<Point> hull = convexHull(points);
+            float area = calculateArea(hull);
+            std::cout << "Convex Hull Area: " << area << std::endl;
+            break;
+        }
         default:
             // Ignore unknown command
             break;
