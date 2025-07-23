@@ -6,8 +6,11 @@
 struct Point
 {
     float x, y;
-    Point() : x(0), y(0) {}
-    Point(float x, float y) : x(x), y(y) {}
+    Point(float x = 0, float y = 0) : x(x), y(y) {}
+    bool operator<(const Point &other) const
+    {
+        return x < other.x || (x == other.x && y < other.y);
+    }
 };
 
 // פונקציה לחישוב מכפלה וקטורית-קובעת את כיוון הסיבוב
@@ -24,23 +27,59 @@ std::vector<Point> convexHull(std::vector<Point> points)
     sort(points.begin(), points.end());
     std::vector<Point> hull;
     // חלק תחתון
+    std::vector<Point> lower;
     for (int i = 0; i < size; i++)
     {
-        while (hull.size() >= 2 && crossProduct(hull[hull.size() - 2], hull[hull.size() - 1], points[i]) <= 0)
+        while (lower.size() >= 2 && crossProduct(lower[lower.size() - 2], lower[lower.size() - 1], points[i]) <= 0)
         {
-            hull.pop_back();
+            lower.pop_back();
         }
-        hull.push_back(points[i]);
+        lower.push_back(points[i]);
     }
     // חלק עליון
-    int t = hull.size() + 1;
-    for (int i = size - 2; i >= 0; i--)
+    std::vector<Point> upper;
+    for (int i = size - 1; i >= 0; i--)
     {
-        while (hull.size() >= t && crossProduct(hull[hull.size() - 2], hull[hull.size() - 1], points[i]) <= 0)
+        while (upper.size() >= 2 && crossProduct(upper[upper.size() - 2], upper[upper.size() - 1], points[i]) <= 0)
         {
-            hull.pop_back();
+            upper.pop_back();
         }
-        hull.push_back(points[i]);
+        upper.push_back(points[i]);
     }
-    hull.pop_back(); // הסרת נקודה הכפולה
+    lower.pop_back();
+    upper.pop_back();
+    lower.insert(lower.end(), upper.begin(), upper.end());
+    return lower;
+}
+
+float calculateArea(const std::vector<Point> &hull)
+{
+    if (hull.size() < 3)
+        return 0;
+    float area = 0;
+    int size = hull.size();
+    for (int i = 0; i < size; i++)
+    {
+        int j = (i + 1) % size;
+        area += hull[i].x * hull[j].y;
+        area -= hull[j].x * hull[i].y;
+    }
+
+    return std::abs(area) / 2.0;
+}
+
+int main()
+{
+    int numPoints;
+    std::cin >> numPoints;
+    std::vector<Point> points(numPoints);
+    for (int i = 0; i < numPoints; i++)
+    {
+        char comma;
+        std::cin >> points[i].x >> comma >> points[i].y;
+    }
+    std::vector<Point> hull = convexHull(points);
+    float area = calculateArea(hull);
+    std::cout << area << std::endl;
+    return 0;
 }
