@@ -105,6 +105,7 @@ int main()
         {
             iss >> n;
             points.clear();
+            std::cout << "Created new graph with size " << n << ".\n";
             break;
         }
         case CMD_NEWPOINT:
@@ -117,6 +118,7 @@ int main()
             if (points.size() >= n)
                 throw std::out_of_range("Graph is full.");
             points.emplace_back(x, y);
+            std::cout << "Added new point (" << x << "," << y << ") to graph.\n";
             break;
         }
         case CMD_REMOVEPOINT:
@@ -131,6 +133,7 @@ int main()
             if (it != points.end())
             {
                 points.erase(it);
+                std::cout << "Removed point (" << x << "," << y << ") from graph.\n";
             }
             else throw std::invalid_argument("Point doesn't exist in graph.");
             break;
@@ -143,7 +146,7 @@ int main()
             break;
         }
         default:
-            // Ignore unknown command
+            std::cout << "Command '" << command << "' could not be recognized.\n";
             break;
         }
     }
