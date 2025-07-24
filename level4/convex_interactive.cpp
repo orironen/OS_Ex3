@@ -1,0 +1,234 @@
+#include <iostream>
+#include <stdexcept>
+#include <vector>
+#include <algorithm>
+#include <string>
+#include <sstream>
+#include <cmath>
+#include <stdio.h>
+#include <signal.h>
+#include <poll.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <getopt.h>
+#include <sys/un.h>
+#define BUFFER_SIZE 1024
+
+int intflag = 0;
+
+void sigint(int signum) {
+    printf("\nTerminating connection.\n");
+    intflag = 1;
+}
+
+struct Point
+{
+    float x, y;
+    Point(float x = 0, float y = 0) : x(x), y(y) {}
+    bool operator<(const Point &other) const
+    {
+        return x < other.x || (x == other.x && y < other.y);
+    }
+    bool operator==(const Point &other) const
+    {
+        return x == other.x && y == other.y;
+    }
+};
+
+enum CommandType
+{
+    CMD_NEWGRAPH,
+    CMD_NEWPOINT,
+    CMD_REMOVEPOINT,
+    CMD_CH,
+    CMD_UNKNOWN
+};
+
+float crossProduct(const Point &O, const Point &A, const Point &B)
+{
+    return (A.x - O.x) * (B.y - O.y) - (A.y - O.y) * (B.x - O.x);
+}
+
+std::vector<Point> convexHull(std::vector<Point> points)
+{
+    int n = points.size();
+    if (n <= 1)
+        return points;
+    std::sort(points.begin(), points.end());
+    std::vector<Point> lower, upper;
+    for (int i = 0; i < n; ++i)
+    {
+        while (lower.size() >= 2 && crossProduct(lower[lower.size() - 2], lower[lower.size() - 1], points[i]) <= 0)
+            lower.pop_back();
+        lower.push_back(points[i]);
+    }
+    for (int i = n - 1; i >= 0; --i)
+    {
+        while (upper.size() >= 2 && crossProduct(upper[upper.size() - 2], upper[upper.size() - 1], points[i]) <= 0)
+            upper.pop_back();
+        upper.push_back(points[i]);
+    }
+    lower.pop_back();
+    upper.pop_back();
+    lower.insert(lower.end(), upper.begin(), upper.end());
+    return lower;
+}
+
+float calculateArea(const std::vector<Point> &hull)
+{
+    if (hull.size() < 3)
+        return 0;
+    float area = 0;
+    int n = hull.size();
+    for (int i = 0; i < n; ++i)
+    {
+        int j = (i + 1) % n;
+        area += hull[i].x * hull[j].y;
+        area -= hull[j].x * hull[i].y;
+    }
+    return std::abs(area) / 2.0;
+}
+
+CommandType parseCommand(const std::string &cmd)
+{
+    if (cmd == "Newgraph")
+        return CMD_NEWGRAPH;
+    if (cmd == "Newpoint")
+        return CMD_NEWPOINT;
+    if (cmd == "Removepoint")
+        return CMD_REMOVEPOINT;
+    if (cmd == "CH")
+        return CMD_CH;
+    return CMD_UNKNOWN;
+}
+
+int main()
+{
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    act.sa_handler = sigint;
+    sigaction(SIGINT, &act, NULL);
+    int port = 9034;
+    std::vector<Point> points;
+    std::string line;
+    int n;
+    int server_sock;
+    server_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_sock < 0)
+    {
+        perror("Socket error");
+        exit(1);
+    }
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    server_addr.sin_addr.s_addr = INADDR_ANY; // מקשיב על כל הכתובות של המחשב
+    char buffer[BUFFER_SIZE];
+    if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    {
+        perror("Bind failed\n");
+        exit(1);
+    }
+    if (listen(server_sock, 10) < 0)
+    {
+        perror("Listen failed\n");
+        exit(1);
+    }
+    // create poll struct
+    struct pollfd pfds[2];
+    pfds[0].fd = STDIN_FILENO;
+    pfds[0].events = POLLIN;
+    pfds[1].fd = server_sock;
+    pfds[1].events = POLLIN;
+    while (!intflag)
+    {
+        CommandType cmdType;
+        if (poll(pfds, 2, -1) == -1) {
+            if (intflag) continue;
+            perror("Poll failed\n");
+            exit(1);
+        }
+        if (pfds[0].revents & POLLIN)
+            std::getline(std::cin, line);
+        else if (pfds[1].revents & POLLIN) {
+            struct sockaddr_in client_addr;
+            socklen_t client_len = sizeof(client_addr);
+            int client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_len);
+            if (client_sock < 0)
+            {
+                if (intflag) break;
+                perror("Accept failed\n");
+                continue;
+            }
+            char buffer[BUFFER_SIZE];
+            int bytes_received;
+            printf("Client connected from %s\n", inet_ntoa(client_addr.sin_addr));
+            while ((bytes_received = recv(client_sock, buffer, sizeof(buffer) - 1, 0)) > 0)
+                std::string line(buffer);
+            printf("Client disconnected\n");
+            close(client_sock);
+        }
+        std::istringstream iss(line);
+        std::string command;
+        iss >> command;
+
+        cmdType = parseCommand(command);
+        switch (cmdType)
+        {
+            case CMD_NEWGRAPH:
+                {
+                    iss >> n;
+                    points.clear();
+                    std::cout << "Created new graph with size " << n << ".\n";
+                    break;
+                }
+            case CMD_NEWPOINT:
+                {
+                    float x, y;
+                    char comma;
+                    iss >> x >> comma >> y;
+                    if (comma != ',') 
+                        throw std::invalid_argument("Not comma-separated.");
+                    if (points.size() >= n)
+                        throw std::out_of_range("Graph is full.");
+                    points.emplace_back(x, y);
+                    std::cout << "Added new point (" << x << "," << y << ") to graph.\n";
+                    break;
+                }
+            case CMD_REMOVEPOINT:
+                {
+                    float x, y;
+                    char comma;
+                    iss >> x >> comma >> y;
+                    if (comma != ',') 
+                        throw std::invalid_argument("Not comma-separated.");
+                    Point toRemove(x, y);
+                    auto it = std::find(points.begin(), points.end(), toRemove);
+                    if (it != points.end())
+                    {
+                        points.erase(it);
+                        std::cout << "Removed point (" << x << "," << y << ") from graph.\n";
+                    }
+                    else throw std::invalid_argument("Point doesn't exist in graph.");
+                    break;
+                }
+            case CMD_CH:
+                {
+                    std::vector<Point> hull = convexHull(points);
+                    float area = calculateArea(hull);
+                    std::cout << "Convex Hull Area: " << area << std::endl;
+                    break;
+                }
+            default:
+                std::cout << "Command '" << command << "' could not be recognized.\n";
+                break;
+        }
+    }
+    close(server_sock);
+    return 0;
+}
