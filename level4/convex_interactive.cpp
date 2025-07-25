@@ -154,9 +154,11 @@ int main()
             perror("Poll failed\n");
             exit(1);
         }
+        line.clear();
+        bool recv_sock = pfds[1].revents & POLLIN;
         if (pfds[0].revents & POLLIN)
             std::getline(std::cin, line);
-        else if (pfds[1].revents & POLLIN) {
+        else if (recv_sock) {
             struct sockaddr_in client_addr;
             socklen_t client_len = sizeof(client_addr);
             client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_len);
@@ -171,7 +173,7 @@ int main()
             printf("Client connected from %s\n", inet_ntoa(client_addr.sin_addr));
             while ((bytes_received = recv(client_sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
                 buffer[bytes_received] = '\0';
-                std::string line(buffer);
+                line += buffer;
             }
         }
         std::istringstream iss(line);
@@ -229,7 +231,7 @@ int main()
                 std::cout << "Command '" << command << "' could not be recognized.\n";
                 break;
         }
-        if (pfds[1].revents & POLLIN) {
+        if (recv_sock) {
             printf("Client disconnected\n");
             close(client_sock);
         }
