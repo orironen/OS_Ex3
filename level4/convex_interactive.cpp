@@ -127,7 +127,7 @@ int main()
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
-    server_addr.sin_addr.s_addr = INADDR_ANY; // מקשיב על כל הכתובות של המחשב
+    server_addr.sin_addr.s_addr = INADDR_ANY;
     char buffer[BUFFER_SIZE];
     if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
@@ -148,6 +148,7 @@ int main()
     while (!intflag)
     {
         CommandType cmdType;
+        int client_sock;
         if (poll(pfds, 2, -1) == -1) {
             if (intflag) continue;
             perror("Poll failed\n");
@@ -158,7 +159,7 @@ int main()
         else if (pfds[1].revents & POLLIN) {
             struct sockaddr_in client_addr;
             socklen_t client_len = sizeof(client_addr);
-            int client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_len);
+            client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_len);
             if (client_sock < 0)
             {
                 if (intflag) break;
@@ -168,10 +169,10 @@ int main()
             char buffer[BUFFER_SIZE];
             int bytes_received;
             printf("Client connected from %s\n", inet_ntoa(client_addr.sin_addr));
-            while ((bytes_received = recv(client_sock, buffer, sizeof(buffer) - 1, 0)) > 0)
+            while ((bytes_received = recv(client_sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
+                buffer[bytes_received] = '\0';
                 std::string line(buffer);
-            printf("Client disconnected\n");
-            close(client_sock);
+            }
         }
         std::istringstream iss(line);
         std::string command;
@@ -227,6 +228,10 @@ int main()
             default:
                 std::cout << "Command '" << command << "' could not be recognized.\n";
                 break;
+        }
+        if (pfds[1].revents & POLLIN) {
+            printf("Client disconnected\n");
+            close(client_sock);
         }
     }
     close(server_sock);
