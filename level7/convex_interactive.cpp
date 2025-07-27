@@ -1,6 +1,10 @@
+#include <exception>
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <thread>
+#include <utility>
 #include <vector>
 #include <algorithm>
 #include <string>
@@ -162,7 +166,7 @@ std::vector<Point> processCommand(CommandType cmdType, std::vector<Point> points
     return points;
 }
 
-void client_handler(int client_sock, std::vector<Point> points, int n);
+void client_handler(int client_sock, std::shared_ptr<std::vector<Point>> points, int& n, std::mutex& points_mutex);
 
 int main()
 {
@@ -171,7 +175,9 @@ int main()
     act.sa_handler = sigint;
     sigaction(SIGINT, &act, NULL);
     int port = 9034;
-    std::vector<Point> points;
+    auto points = std::make_shared<std::vector<Point>>();
+    std::mutex points_mutex;
+
     std::string line;
     int n;
     int server_sock;
@@ -224,7 +230,7 @@ int main()
             iss >> command;
 
             cmdType = parseCommand(command);
-            points = processCommand(cmdType, points, n, iss);
+            *points = std::move(processCommand(cmdType, *points, n, iss));
         }
         else if (sock_ready) {
             struct sockaddr_in client_addr;
@@ -237,11 +243,7 @@ int main()
                 continue;
             }
             printf("Client connected from %s\n", inet_ntoa(client_addr.sin_addr));
-            client_threads.emplace_back(std::thread(client_handler, client_sock, points, n));
-        }
-        if (sock_ready) {
-            printf("Client disconnected\n");
-            close(client_sock);
+            client_threads.emplace_back(std::thread(client_handler, client_sock, points, std::ref(n), std::ref(points_mutex)));
         }
     }
     for (auto& t : client_threads) {
@@ -253,7 +255,7 @@ int main()
     return 0;
 }
 
-void client_handler(int client_sock, std::vector<Point> points, int n) {
+void client_handler(int client_sock, std::shared_ptr<std::vector<Point>> points, int& n, std::mutex& points_mutex) {
     char buffer[BUFFER_SIZE];
     int bytes_received;
     std::string line;
@@ -262,12 +264,19 @@ void client_handler(int client_sock, std::vector<Point> points, int n) {
         buffer[bytes_received] = '\0';
         line += buffer;
     }
-    std::istringstream iss(line);
-    std::string command;
-    iss >> command;
+    try {
+        std::istringstream iss(line);
+        std::string command;
+        iss >> command;
+        std::lock_guard<std::mutex> lock(points_mutex);
+        CommandType cmdType = parseCommand(command);
+        auto updated_points = processCommand(cmdType, *points, n, iss);
+        *points = std::move(updated_points);
+    }
+    catch(const std::exception& e) {
+        std::cerr << "Error processing command: " << e.what() << std::endl;
+    }
 
-    CommandType cmdType = parseCommand(command);
-    points = processCommand(cmdType, points, n, iss);
     close(client_sock);
     printf("Client disconnected\n");
 }
