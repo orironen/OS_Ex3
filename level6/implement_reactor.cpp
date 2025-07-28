@@ -14,10 +14,11 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/un.h>
-#include <unordered_map>
-#include "reactor.hpp"
+#include "../level5/reactor.hpp"
 
 #define BUFFER_SIZE 1024
+struct Point;
+
 // Global variables
 int intflag = 0;
 void *reactor_ptr = nullptr;
