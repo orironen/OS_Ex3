@@ -6,6 +6,7 @@
 
 namespace designPattern
 {
+    proactorFunc globalHandlerFunc = nullptr;
     void *pollThread(Reactor *r)
     {
         while (r->running)
@@ -97,7 +98,6 @@ namespace designPattern
         int client_sock = *(int *)arg;
         delete (int *)arg;
 
-        extern proactorFunc globalHandlerFunc;
         globalHandlerFunc(client_sock);
         close(client_sock);
         return nullptr;
@@ -133,7 +133,6 @@ namespace designPattern
         return nullptr;
     }
 
-    proactorFunc globalHandlerFunc = nullptr;
 
     pthread_t startProactor(int sockfd, proactorFunc threadFunc)
     {
