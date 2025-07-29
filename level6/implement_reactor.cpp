@@ -21,7 +21,8 @@ struct Point;
 
 // Global variables
 int intflag = 0;
-void *reactor_ptr = nullptr;
+void *sock_reactor = nullptr;
+void *stdin_reactor = nullptr;
 int server_sock = -1;
 std::vector<Point> points;
 int graph_size = 0;
@@ -190,9 +191,7 @@ void *handleServerSocket(int fd)
     if (client_sock < 0)
     {
         if (!intflag)
-        {
             perror("Accept failed");
-        }
         return nullptr;
     }
     printf("Client connected from %s\n", inet_ntoa(client_addr.sin_addr));
@@ -206,11 +205,17 @@ void *handleServerSocket(int fd)
         line += buffer;
     }
     if (!line.empty())
-    {
         processCommand(line);
-    }
     printf("Client disconnected\n");
     close(client_sock);
+    return nullptr;
+}
+
+void *handleNormalFD(int fd) {
+    std::string line;
+    std::getline(std::cin, line);
+    if (!line.empty())
+        processCommand(line);
     return nullptr;
 }
 
@@ -254,18 +259,21 @@ int main()
         exit(1);
     }
     // Start reactor
-    reactor_ptr = reactor::startReactor();
-    if (!reactor_ptr)
+    sock_reactor = reactor::startReactor();
+    stdin_reactor = reactor::startReactor();
+    if (!sock_reactor || !stdin_reactor)
     {
         std::cerr << "Failed to start reactor" << std::endl;
         close(server_sock);
         exit(1);
     }
     // Add server socket to reactor
-    if (reactor::addFdToReactor(reactor_ptr, server_sock, handleServerSocket) < 0)
+    if (reactor::addFdToReactor(sock_reactor, server_sock, handleServerSocket) < 0 
+        || reactor::addFdToReactor(stdin_reactor, STDIN_FILENO, handleNormalFD) < 0)
     {
         std::cerr << "Failed to add server socket to reactor" << std::endl;
-        reactor::stopReactor(reactor_ptr);
+        reactor::stopReactor(sock_reactor);
+        reactor::stopReactor(stdin_reactor);
         close(server_sock);
         exit(1);
     }
@@ -276,7 +284,8 @@ int main()
     {
         sleep(1);
     }
-    reactor::stopReactor(reactor_ptr);
+    reactor::stopReactor(sock_reactor);
+    reactor::stopReactor(stdin_reactor);
     close(server_sock);
     return 0;
 }
