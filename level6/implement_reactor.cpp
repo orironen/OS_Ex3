@@ -17,6 +17,7 @@
 #include "../level5/reactor.hpp"
 
 #define BUFFER_SIZE 1024
+<<<<<<< HEAD:level6/implement_reactor.cpp
 struct Point;
 
 // Global variables
@@ -25,6 +26,8 @@ void *reactor_ptr = nullptr;
 int server_sock = -1;
 std::vector<Point> points;
 int graph_size = 0;
+=======
+>>>>>>> ee1ff0f (implemented reactor pattern):level6/implemet_reactor.cpp
 
 void sigint(int signum)
 {
@@ -45,6 +48,13 @@ struct Point
         return x == other.x && y == other.y;
     }
 };
+
+// Global variables
+int intflag = 0;
+void *reactor_ptr = nullptr;
+int server_sock = -1;
+std::vector<Point> points;
+int graph_size = 0;
 
 enum CommandType
 {
@@ -180,7 +190,6 @@ void processCommand(const std::string &line)
         std::cout << "Error: " << e.what() << std::endl;
     }
 }
-
 // Handler function for server socket (new connections)
 void *handleServerSocket(int fd)
 {
@@ -262,7 +271,6 @@ int main()
         close(server_sock);
         exit(1);
     }
-
     // Add server socket to reactor
     if (reactor::addFdToReactor(reactor_ptr, server_sock, handleServerSocket) < 0)
     {
@@ -271,19 +279,14 @@ int main()
         close(server_sock);
         exit(1);
     }
-
     std::cout << "Convex Hull Server started on port " << port << std::endl;
     std::cout << "Enter commands or wait for client connections..." << std::endl;
-
     // Wait for interrupt signal
     while (!intflag)
     {
         sleep(1);
     }
-
-    // Cleanup
     reactor::stopReactor(reactor_ptr);
     close(server_sock);
-
     return 0;
 }
