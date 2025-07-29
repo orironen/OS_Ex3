@@ -17,7 +17,6 @@
 #include "../level5/reactor.hpp"
 
 #define BUFFER_SIZE 1024
-<<<<<<< HEAD:level6/implement_reactor.cpp
 struct Point;
 
 // Global variables
@@ -26,8 +25,6 @@ void *reactor_ptr = nullptr;
 int server_sock = -1;
 std::vector<Point> points;
 int graph_size = 0;
-=======
->>>>>>> ee1ff0f (implemented reactor pattern):level6/implemet_reactor.cpp
 
 void sigint(int signum)
 {
@@ -48,13 +45,6 @@ struct Point
         return x == other.x && y == other.y;
     }
 };
-
-// Global variables
-int intflag = 0;
-void *reactor_ptr = nullptr;
-int server_sock = -1;
-std::vector<Point> points;
-int graph_size = 0;
 
 enum CommandType
 {

@@ -5,11 +5,7 @@ using namespace reactor;
 
 void *pollThread(Reactor *r)
 {
-<<<<<<< HEAD
     while (r->running)
-=======
-    void *pollThread(Reactor *r)
->>>>>>> ee1ff0f (implemented reactor pattern)
     {
         int p = poll(r->fds.data(), r->fds.size(), 1000);
         if (p < 0)
