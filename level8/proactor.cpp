@@ -1,6 +1,7 @@
 #include "proactor.hpp"
 #include <iostream>
 #include <algorithm>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -107,27 +108,31 @@ namespace designPattern
     {
         ProactorData *data = static_cast<ProactorData *>(arg);
 
-        while (data->running)
-        {
-            int client_sock = accept(data->sockfd, nullptr, nullptr);
-            if (client_sock < 0)
-            {
-                continue;
-            }
+        fd_set fds;
+        while (data->running) {
+            // check for shutdown condition
+            FD_ZERO(&fds);
+            FD_SET(data->sockfd, &fds);
+            FD_SET(data->shutdown_pipe[0], &fds);
+            int maxfd = std::max(data->sockfd, data->shutdown_pipe[0]) + 1;
+            int ret = select(maxfd, &fds, nullptr, nullptr, nullptr);
+            if (FD_ISSET(data->shutdown_pipe[0], &fds)) break;
 
-            int *sock_ptr = new int(client_sock);
-            pthread_t client_tid;
-            globalHandlerFunc = data->threadFunc; // זמני, לשם הפשטות
+            if (FD_ISSET(data->sockfd, &fds)) {
+                int client_sock = accept(data->sockfd, nullptr, nullptr);
+                if (client_sock < 0) continue;
 
-            if (pthread_create(&client_tid, nullptr, clientHandlerWrapper, sock_ptr) != 0)
-            {
-                std::cerr << "Failed to create client thread\n";
-                close(client_sock);
-                delete sock_ptr;
-            }
-            else
-            {
-                pthread_detach(client_tid); // אין צורך ב־join
+                int *sock_ptr = new int(client_sock);
+                pthread_t client_tid;
+                globalHandlerFunc = data->threadFunc; // זמני, לשם הפשטות
+
+                if (pthread_create(&client_tid, nullptr, clientHandlerWrapper, sock_ptr) != 0)
+                {
+                    std::cerr << "Failed to create client thread\n";
+                    close(client_sock);
+                    delete sock_ptr;
+                }
+                else pthread_detach(client_tid); // אין צורך ב־join
             }
         }
         return nullptr;
@@ -139,9 +144,12 @@ namespace designPattern
         pthread_t tid;
         ProactorData *data = new ProactorData{
             sockfd,
+            {0, 0},
             threadFunc,
             &graphMutex,
-            true};
+            true
+        };
+        pipe(data->shutdown_pipe);
 
         if (pthread_create(&tid, nullptr, proactorThread, data) != 0)
         {
@@ -166,6 +174,7 @@ namespace designPattern
             proactors.erase(it);
         }
 
+        write(data->shutdown_pipe[1], "x", 1);
         data->running = false;
         pthread_join(tid, nullptr);
         delete data;

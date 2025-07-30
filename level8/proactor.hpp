@@ -30,6 +30,7 @@ namespace designPattern
     struct ProactorData
     {
         int sockfd;
+        int shutdown_pipe[2];
         proactorFunc threadFunc;
         std::mutex *graphMutex;
         bool running;

@@ -4,7 +4,6 @@
 #include <memory>
 #include <mutex>
 #include <stdexcept>
-#include <thread>
 #include <utility>
 #include <vector>
 #include <algorithm>
@@ -256,10 +255,9 @@ int main()
 
         if (poll(&pfd, 1, 1000) == -1)
         {
-            if (intflag)
-                break;
+            if (intflag) continue;
             perror("Poll failed\n");
-            break;
+            exit(1);
         }
 
         line.clear();
