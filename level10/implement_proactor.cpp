@@ -1,4 +1,5 @@
 #include "../level8/proactor.hpp"
+#include <condition_variable>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -24,6 +25,9 @@
 #define BUFFER_SIZE 1024
 
 int intflag = 0;
+float ch_area = 0;
+std::condition_variable cv;
+std::mutex ch_mutex;
 
 void sigint(int signum)
 {
@@ -35,12 +39,10 @@ struct Point
 {
     float x, y;
     Point(float x = 0, float y = 0) : x(x), y(y) {}
-    bool operator<(const Point &other) const
-    {
+    bool operator<(const Point &other) const {
         return x < other.x || (x == other.x && y < other.y);
     }
-    bool operator==(const Point &other) const
-    {
+    bool operator==(const Point &other) const {
         return x == other.x && y == other.y;
     }
 };
@@ -53,6 +55,10 @@ enum CommandType
     CMD_CH,
     CMD_UNKNOWN
 };
+
+// משתנים גלובליים לניהול הגרף
+std::shared_ptr<std::vector<Point>> points;
+int n = 0;
 
 float crossProduct(const Point &O, const Point &A, const Point &B)
 {
@@ -159,8 +165,10 @@ std::vector<Point> processCommand(CommandType cmdType, std::vector<Point> points
     case CMD_CH:
     {
         std::vector<Point> hull = convexHull(points);
-        float area = calculateArea(hull);
-        std::cout << "Convex Hull Area: " << area << std::endl;
+        std::lock_guard<std::mutex> lock(ch_mutex);
+        ch_area = calculateArea(hull);
+        cv.notify_all();
+        std::cout << "Convex Hull Area: " << ch_area << std::endl;
         break;
     }
     case CMD_UNKNOWN:
@@ -169,9 +177,21 @@ std::vector<Point> processCommand(CommandType cmdType, std::vector<Point> points
     return points;
 }
 
-// משתנים גלובליים לניהול הגרף
-std::shared_ptr<std::vector<Point>> points;
-int n = 0;
+void check_ch_area() {
+    std::unique_lock<std::mutex> lock(ch_mutex);
+    bool was_above = false;
+    
+    while(!intflag) {
+        cv.wait(lock, [](){ return ch_area >= 100 || ch_area < 100; });
+        if (ch_area >= 100 && !was_above) {
+            std::cout << "At Least 100 units belongs to CH\n";
+            was_above = true;
+        } else if (ch_area < 100 && was_above) {
+            std::cout << "At Least 100 units no longer belongs to CH\n";
+            was_above = false;
+        }
+    }
+}
 
 void *client_handler_proactor(int client_sock)
 {
@@ -213,6 +233,8 @@ int main()
     int port = 9034;
     points = std::make_shared<std::vector<Point>>();
 
+    std::thread t(check_ch_area);
+
     std::string line;
     int server_sock;
     server_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -252,7 +274,6 @@ int main()
         struct pollfd pfd;
         pfd.fd = STDIN_FILENO;
         pfd.events = POLLIN;
-
         if (poll(&pfd, 1, 1000) == -1)
         {
             if (intflag) continue;
@@ -282,6 +303,7 @@ int main()
     }
 
     designPattern::stopProactor(proactor_tid);
+    t.join();
     close(server_sock);
     return 0;
 }
