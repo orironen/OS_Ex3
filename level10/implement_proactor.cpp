@@ -32,7 +32,11 @@ std::mutex ch_mutex;
 void sigint(int signum)
 {
     printf("\nTerminating connection.\n");
-    intflag = 1;
+    {
+        std::lock_guard<std::mutex> lock(ch_mutex);
+        intflag = 1;
+    }
+    cv.notify_all();
 }
 
 struct Point
@@ -120,15 +124,15 @@ CommandType parseCommand(const std::string &cmd)
     return CMD_UNKNOWN;
 }
 
-std::vector<Point> processCommand(CommandType cmdType, std::vector<Point> points, int size, std::istringstream &iss)
+std::vector<Point> processCommand(CommandType cmdType, std::vector<Point> points, std::istringstream &iss)
 {
     switch (cmdType)
     {
     case CMD_NEWGRAPH:
     {
-        iss >> size;
+        iss >> n;
         points.clear();
-        std::cout << "Created new graph with size " << size << ".\n";
+        std::cout << "Created new graph with size " << n << ".\n";
         break;
     }
     case CMD_NEWPOINT:
@@ -138,7 +142,7 @@ std::vector<Point> processCommand(CommandType cmdType, std::vector<Point> points
         iss >> x >> comma >> y;
         if (comma != ',')
             throw std::invalid_argument("Not comma-separated.");
-        if (points.size() >= size)
+        if (points.size() >= n)
             throw std::out_of_range("Graph is full.");
         points.emplace_back(x, y);
         std::cout << "Added new point (" << x << "," << y << ") to graph.\n";
@@ -165,8 +169,10 @@ std::vector<Point> processCommand(CommandType cmdType, std::vector<Point> points
     case CMD_CH:
     {
         std::vector<Point> hull = convexHull(points);
-        std::lock_guard<std::mutex> lock(ch_mutex);
-        ch_area = calculateArea(hull);
+            {
+                std::lock_guard<std::mutex> lock(ch_mutex);
+                ch_area = calculateArea(hull);
+            }
         cv.notify_all();
         std::cout << "Convex Hull Area: " << ch_area << std::endl;
         break;
@@ -182,12 +188,12 @@ void check_ch_area() {
     bool was_above = false;
     
     while(!intflag) {
-        cv.wait(lock, [](){ return ch_area >= 100 || ch_area < 100; });
+        cv.wait(lock, [&](){ return intflag || ch_area >= 100 || (ch_area < 100 && was_above); });
         if (ch_area >= 100 && !was_above) {
-            std::cout << "At Least 100 units belongs to CH\n";
+            std::cout << "\nAt Least 100 units belongs to CH\n";
             was_above = true;
         } else if (ch_area < 100 && was_above) {
-            std::cout << "At Least 100 units no longer belongs to CH\n";
+            std::cout << "\nAt Least 100 units no longer belongs to CH\n";
             was_above = false;
         }
     }
@@ -211,7 +217,7 @@ void *client_handler_proactor(int client_sock)
         iss >> command;
         std::lock_guard<std::mutex> lock(designPattern::graphMutex);
         CommandType cmdType = parseCommand(command);
-        auto updated_points = processCommand(cmdType, *points, n, iss);
+        auto updated_points = processCommand(cmdType, *points, iss);
         *points = std::move(updated_points);
     }
     catch (const std::exception &e)
@@ -293,7 +299,7 @@ int main()
             {
                 cmdType = parseCommand(command);
                 std::lock_guard<std::mutex> lock(designPattern::graphMutex);
-                *points = std::move(processCommand(cmdType, *points, n, iss));
+                *points = std::move(processCommand(cmdType, *points, iss));
             }
             catch (const std::exception &e)
             {
