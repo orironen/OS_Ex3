@@ -188,7 +188,8 @@ void check_ch_area() {
     bool was_above = false;
     
     while(!intflag) {
-        cv.wait(lock, [&](){ return intflag || ch_area >= 100 || (ch_area < 100 && was_above); });
+        cv.wait(lock, [&](){ return intflag || (ch_area >= 100 && !was_above) || (ch_area < 100 && was_above); });
+        if (intflag) return;
         if (ch_area >= 100 && !was_above) {
             std::cout << "\nAt Least 100 units belongs to CH\n";
             was_above = true;
