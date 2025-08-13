@@ -124,7 +124,7 @@ namespace designPattern
 
                 int *sock_ptr = new int(client_sock);
                 pthread_t client_tid;
-                globalHandlerFunc = data->threadFunc; // זמני, לשם הפשטות
+                globalHandlerFunc = data->threadFunc;
 
                 if (pthread_create(&client_tid, nullptr, clientHandlerWrapper, sock_ptr) != 0)
                 {
@@ -132,7 +132,7 @@ namespace designPattern
                     close(client_sock);
                     delete sock_ptr;
                 }
-                else pthread_detach(client_tid); // אין צורך ב־join
+                else pthread_detach(client_tid);
             }
         }
         return nullptr;
