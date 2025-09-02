@@ -8,11 +8,6 @@ all: $(SUBDIRS)
 $(SUBDIRS):
 	$(MAKE) -C $@
 
-coverage:
-	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir coverage; \
-	done
-
 clean:
 	for dir in $(SUBDIRS); do \
 		$(MAKE) -C $$dir clean; \
