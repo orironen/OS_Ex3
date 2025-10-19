@@ -114,7 +114,7 @@ CommandType parseCommand(const std::string &cmd)
     return CMD_UNKNOWN;
 }
 
-std::vector<Point> processCommand(CommandType cmdType, std::vector<Point> points, int size, std::istringstream &iss)
+std::vector<Point> processCommand(CommandType cmdType, std::vector<Point> points, int &size, std::istringstream &iss)
 {
     switch (cmdType)
     {
