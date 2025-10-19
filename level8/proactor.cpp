@@ -1,7 +1,7 @@
 #include "proactor.hpp"
 #include <iostream>
 #include <algorithm>
-#include <sys/select.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -108,17 +108,21 @@ namespace designPattern
     {
         ProactorData *data = static_cast<ProactorData *>(arg);
 
-        fd_set fds;
-        while (data->running) {
-            // check for shutdown condition
-            FD_ZERO(&fds);
-            FD_SET(data->sockfd, &fds);
-            FD_SET(data->shutdown_pipe[0], &fds);
-            int maxfd = std::max(data->sockfd, data->shutdown_pipe[0]) + 1;
-            int ret = select(maxfd, &fds, nullptr, nullptr, nullptr);
-            if (FD_ISSET(data->shutdown_pipe[0], &fds)) break;
+        struct pollfd pfds[2];
+        pfds[0].fd = data->sockfd;
+        pfds[0].events = POLLIN;
+        pfds[1].fd = data->shutdown_pipe[0];
+        pfds[1].events = POLLIN;
 
-            if (FD_ISSET(data->sockfd, &fds)) {
+        while (data->running) {
+            pfds[0].revents = 0;
+            pfds[1].revents = 0;
+            int ret = poll(pfds, 2, -1); // -1: wait forever
+            if (ret < 0) continue;
+
+            if (pfds[1].revents & POLLIN) break;
+
+            if (pfds[0].revents & POLLIN) {
                 int client_sock = accept(data->sockfd, nullptr, nullptr);
                 if (client_sock < 0) continue;
 
