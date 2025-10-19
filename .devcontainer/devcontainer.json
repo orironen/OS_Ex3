@@ -1,0 +1,14 @@
+{
+    "image": "mcr.microsoft.com/devcontainers/cpp:ubuntu-24.04",
+    "features":
+    {
+        "ghcr.io/e10withadot/features/neovim:0": {},
+    },
+    "mounts": [
+        {
+            "type": "bind",
+            "source": "${localEnv:HOME}/.config/nvim/",
+            "target": "/home/vscode/.config/nvim/"
+        }
+    ],
+}
