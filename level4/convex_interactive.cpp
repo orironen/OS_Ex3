@@ -112,7 +112,7 @@ int main()
     memset(&act, 0, sizeof(act));
     act.sa_handler = sigint;
     sigaction(SIGINT, &act, NULL);
-    int port = 9033;
+    int port = 9034;
     std::vector<Point> points;
     std::string line;
     int n;
