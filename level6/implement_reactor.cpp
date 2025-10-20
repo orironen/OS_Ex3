@@ -195,17 +195,29 @@ void *handleServerSocket(int fd)
         return nullptr;
     }
     printf("Client connected from %s\n", inet_ntoa(client_addr.sin_addr));
-    // Read data from client
+    // Read data from client, process line by line
     char buffer[BUFFER_SIZE];
     int bytes_received;
-    std::string line;
+    std::string client_buffer;
     while ((bytes_received = recv(client_sock, buffer, sizeof(buffer) - 1, 0)) > 0)
     {
         buffer[bytes_received] = '\0';
-        line += buffer;
+        client_buffer += buffer;
+        size_t pos;
+        while ((pos = client_buffer.find('\n')) != std::string::npos)
+        {
+            std::string line = client_buffer.substr(0, pos);
+            client_buffer.erase(0, pos + 1);
+            // Capture processCommand output
+            std::ostringstream response;
+            std::streambuf* old_cout = std::cout.rdbuf(response.rdbuf());
+            processCommand(line);
+            std::cout.rdbuf(old_cout);
+            std::string resp_str = response.str();
+            if (!resp_str.empty())
+                send(client_sock, resp_str.c_str(), resp_str.size(), 0);
+        }
     }
-    if (!line.empty())
-        processCommand(line);
     printf("Client disconnected\n");
     close(client_sock);
     return nullptr;

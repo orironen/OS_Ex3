@@ -7,7 +7,7 @@ namespace reactor {
     {
         while (r->running)
         {
-            int p = poll(r->fds.data(), r->fds.size(), 1000);
+            int p = poll(r->fds.data(), r->fds.size(), 1000);//מחזיר כמות הפעמים שה-fd מוכן לקריאה
             if (p < 0)
             {
                 std::cerr << "Poll error" << std::endl;
@@ -16,12 +16,12 @@ namespace reactor {
             // בודק אילו file descriptors מוכנים לקריאה
             for (auto &pfd : r->fds)
             {
-                if (pfd.revents & POLLIN)
+                if (pfd.revents & POLLIN)//אם ה-fd מוכן לקריאה 
                 {
                     auto handler = r->handlers[pfd.fd];
                     if (handler)
                     {
-                        handler(pfd.fd);
+                        handler(pfd.fd);//מפעילים את הפונקציה המתאימה מהמפה
                     }
                 }
             }
@@ -33,7 +33,7 @@ namespace reactor {
     {
         Reactor *r = new Reactor();
         r->running = true;
-        r->poll_thread = std::thread(pollThread, r);
+        r->poll_thread = std::thread(pollThread, r);//מפעילים תרד חדש
         return static_cast<void *>(r);
     }
 
@@ -47,6 +47,7 @@ namespace reactor {
         pfd.fd = fd;
         pfd.events = POLLIN;
         pfd.revents = 0;
+        //מוסיפים את ה-fd למערך ולמפה
         r->fds.push_back(pfd);
         r->handlers[fd] = func;
         return 0;
@@ -74,6 +75,7 @@ namespace reactor {
     {
         if (!reactor)
             return -1;
+        //צריך להמיר ממצביע כללי לreactor
         Reactor *r = static_cast<Reactor *>(reactor);
         r->running = false;
         if (r->poll_thread.joinable())

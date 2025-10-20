@@ -204,28 +204,28 @@ void *client_handler_proactor(int client_sock)
 {
     char buffer[BUFFER_SIZE];
     int bytes_received;
-    std::string line;
-
+    std::string client_buffer;
     while ((bytes_received = recv(client_sock, buffer, sizeof(buffer) - 1, 0)) > 0)
     {
         buffer[bytes_received] = '\0';
-        line += buffer;
+        client_buffer += buffer;
+        size_t pos;
+        while ((pos = client_buffer.find('\n')) != std::string::npos) {
+            std::string line = client_buffer.substr(0, pos);
+            client_buffer.erase(0, pos + 1);
+            try {
+                std::istringstream iss(line);
+                std::string command;
+                iss >> command;
+                std::lock_guard<std::mutex> lock(designPattern::graphMutex);
+                CommandType cmdType = parseCommand(command);
+                auto updated_points = processCommand(cmdType, *points, iss);
+                *points = std::move(updated_points);
+            } catch (const std::exception &e) {
+                std::cerr << "Error processing command: " << e.what() << std::endl;
+            }
+        }
     }
-    try
-    {
-        std::istringstream iss(line);
-        std::string command;
-        iss >> command;
-        std::lock_guard<std::mutex> lock(designPattern::graphMutex);
-        CommandType cmdType = parseCommand(command);
-        auto updated_points = processCommand(cmdType, *points, iss);
-        *points = std::move(updated_points);
-    }
-    catch (const std::exception &e)
-    {
-        std::cerr << "Error processing command: " << e.what() << std::endl;
-    }
-
     close(client_sock);
     printf("Client disconnected\n");
     return nullptr;

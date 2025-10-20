@@ -112,7 +112,7 @@ int main()
     memset(&act, 0, sizeof(act));
     act.sa_handler = sigint;
     sigaction(SIGINT, &act, NULL);
-    int port = 9034;
+    int port = 9033;
     std::vector<Point> points;
     std::string line;
     int n;
@@ -171,67 +171,74 @@ int main()
             char buffer[BUFFER_SIZE];
             int bytes_received;
             printf("Client connected from %s\n", inet_ntoa(client_addr.sin_addr));
+            std::string client_buffer;
             while ((bytes_received = recv(client_sock, buffer, sizeof(buffer) - 1, 0)) > 0) {
                 buffer[bytes_received] = '\0';
-                line += buffer;
-            }
-        }
-        std::istringstream iss(line);
-        std::string command;
-        iss >> command;
-
-        cmdType = parseCommand(command);
-        switch (cmdType)
-        {
-            case CMD_NEWGRAPH:
-                {
-                    iss >> n;
-                    points.clear();
-                    std::cout << "Created new graph with size " << n << ".\n";
-                    break;
-                }
-            case CMD_NEWPOINT:
-                {
-                    float x, y;
-                    char comma;
-                    iss >> x >> comma >> y;
-                    if (comma != ',') 
-                        throw std::invalid_argument("Not comma-separated.");
-                    if (points.size() >= n)
-                        throw std::out_of_range("Graph is full.");
-                    points.emplace_back(x, y);
-                    std::cout << "Added new point (" << x << "," << y << ") to graph.\n";
-                    break;
-                }
-            case CMD_REMOVEPOINT:
-                {
-                    float x, y;
-                    char comma;
-                    iss >> x >> comma >> y;
-                    if (comma != ',') 
-                        throw std::invalid_argument("Not comma-separated.");
-                    Point toRemove(x, y);
-                    auto it = std::find(points.begin(), points.end(), toRemove);
-                    if (it != points.end())
-                    {
-                        points.erase(it);
-                        std::cout << "Removed point (" << x << "," << y << ") from graph.\n";
+                client_buffer += buffer;
+                size_t pos;
+                while ((pos = client_buffer.find('\n')) != std::string::npos) {
+                    std::string line = client_buffer.substr(0, pos);
+                    client_buffer.erase(0, pos + 1);
+                    std::istringstream iss(line);
+                    std::string command;
+                    iss >> command;
+                    cmdType = parseCommand(command);
+                    try {
+                        switch (cmdType)
+                        {
+                            case CMD_NEWGRAPH:
+                                {
+                                    iss >> n;
+                                    points.clear();
+                                    std::cout << "Created new graph with size " << n << ".\n";
+                                    break;
+                                }
+                            case CMD_NEWPOINT:
+                                {
+                                    float x, y;
+                                    char comma;
+                                    iss >> x >> comma >> y;
+                                    if (comma != ',') 
+                                        throw std::invalid_argument("Not comma-separated.");
+                                    if (points.size() >= n)
+                                        throw std::out_of_range("Graph is full.");
+                                    points.emplace_back(x, y);
+                                    std::cout << "Added new point (" << x << "," << y << ") to graph.\n";
+                                    break;
+                                }
+                            case CMD_REMOVEPOINT:
+                                {
+                                    float x, y;
+                                    char comma;
+                                    iss >> x >> comma >> y;
+                                    if (comma != ',') 
+                                        throw std::invalid_argument("Not comma-separated.");
+                                    Point toRemove(x, y);
+                                    auto it = std::find(points.begin(), points.end(), toRemove);
+                                    if (it != points.end())
+                                    {
+                                        points.erase(it);
+                                        std::cout << "Removed point (" << x << "," << y << ") from graph.\n";
+                                    }
+                                    else throw std::invalid_argument("Point doesn't exist in graph.");
+                                    break;
+                                }
+                            case CMD_CH:
+                                {
+                                    std::vector<Point> hull = convexHull(points);
+                                    float area = calculateArea(hull);
+                                    std::cout << "Convex Hull Area: " << area << std::endl;
+                                    break;
+                                }
+                            default:
+                                std::cout << "Command '" << command << "' could not be recognized.\n";
+                                break;
+                        }
+                    } catch (const std::exception &e) {
+                        std::cout << "Error: " << e.what() << std::endl;
                     }
-                    else throw std::invalid_argument("Point doesn't exist in graph.");
-                    break;
                 }
-            case CMD_CH:
-                {
-                    std::vector<Point> hull = convexHull(points);
-                    float area = calculateArea(hull);
-                    std::cout << "Convex Hull Area: " << area << std::endl;
-                    break;
-                }
-            default:
-                std::cout << "Command '" << command << "' could not be recognized.\n";
-                break;
-        }
-        if (recv_sock) {
+            }
             printf("Client disconnected\n");
             close(client_sock);
         }
